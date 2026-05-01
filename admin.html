@@ -5,10 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Admin — Dishify</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Outfit:wght@300;400;500;600&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+  <!-- compiler.html handles MindAR loading in its own tab -->
   <style>
     :root{--gold:#c9a84c;--gold-light:#e8c97a;--gold-dim:rgba(201,168,76,0.12);--ink:#070604;--ink2:#0e0d0a;--ink3:#181510;--cream:#f0e8d5;--cream-dim:rgba(240,232,213,0.55);--green:#4caf7d;--red:#bf4040}
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -129,6 +130,74 @@
     @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 
     @media(max-width:900px){.grid-2,.grid-3{grid-template-columns:1fr}.stats-row{grid-template-columns:1fr 1fr}}
+
+    /* ════════════════════════════════════════
+       IMMERSIVE 3D SYSTEM — ADMIN
+    ════════════════════════════════════════ */
+    body{cursor:none;}
+
+    /* Custom cursor */
+    #adm-cur{position:fixed;width:8px;height:8px;background:var(--gold);border-radius:50%;pointer-events:none;z-index:9999;top:0;left:0;mix-blend-mode:difference;will-change:transform;}
+    #adm-ring{position:fixed;width:28px;height:28px;border:1px solid rgba(201,168,76,.5);border-radius:50%;pointer-events:none;z-index:9998;top:0;left:0;will-change:transform;}
+    @media(hover:none){#adm-cur,#adm-ring{display:none;}body{cursor:auto;}}
+
+    /* Grain */
+    body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");opacity:.022;pointer-events:none;z-index:9980;}
+
+    /* Progress bar */
+    #adm-prog{position:fixed;top:0;left:0;height:2px;width:0%;background:linear-gradient(90deg,var(--gold),#e8c97a);z-index:9000;pointer-events:none;}
+
+    /* ── LOGIN SCREEN 3D RINGS ── */
+    #login-screen{overflow:hidden;position:relative;}
+    .ls-bg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;}
+    .ls-glow{position:absolute;width:440px;height:440px;border-radius:50%;background:radial-gradient(circle,rgba(201,168,76,.10) 0%,transparent 65%);animation:lsGlw 5s ease-in-out infinite;}
+    @keyframes lsGlw{0%,100%{opacity:.5;transform:scale(1);}50%{opacity:1;transform:scale(1.16);}}
+    .ls-ring{position:absolute;border-radius:50%;border:1px solid;animation:lsSpin linear infinite;}
+    .ls-ring:nth-child(2){width:200px;height:200px;border-color:rgba(201,168,76,.38);animation-duration:18s;}
+    .ls-ring:nth-child(3){width:380px;height:380px;border-color:rgba(201,168,76,.18);animation-duration:30s;animation-direction:reverse;}
+    .ls-ring:nth-child(4){width:620px;height:620px;border-color:rgba(201,168,76,.08);animation-duration:48s;}
+    .ls-ring:nth-child(5){width:900px;height:900px;border-color:rgba(201,168,76,.03);animation-duration:72s;animation-direction:reverse;}
+    @keyframes lsSpin{to{transform:rotate(360deg);}}
+    .ls-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(201,168,76,.032) 1px,transparent 1px),linear-gradient(90deg,rgba(201,168,76,.032) 1px,transparent 1px);background-size:64px 64px;}
+
+    /* Login box */
+    .login-box{
+      position:relative;z-index:10;
+      backdrop-filter:blur(18px) saturate(1.4);
+      background:rgba(14,13,10,.9)!important;
+      border-color:rgba(201,168,76,.2)!important;
+      animation:admBoxIn .85s both cubic-bezier(.16,1,.3,1);
+    }
+    @keyframes admBoxIn{from{opacity:0;transform:translateY(32px) rotateX(10deg);}to{opacity:1;transform:translateY(0) rotateX(0);}}
+
+    /* ── SIDEBAR ── */
+    .sidebar{backdrop-filter:blur(20px)!important;}
+    .nav-item{transition:background .18s,color .18s,transform .18s,border-color .18s;}
+    .nav-item:hover{transform:translateX(3px);}
+    .nav-item.active{position:relative;}
+    .nav-item.active::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:2px;height:60%;background:var(--gold);border-radius:0 1px 1px 0;}
+
+    /* ── STAT CARDS 3D ── */
+    .stat-card{
+      transition:transform .3s cubic-bezier(.16,1,.3,1),box-shadow .3s,border-color .22s;
+      transform-style:preserve-3d;
+    }
+    .stat-card:hover{transform:translateY(-5px) rotateX(3deg);box-shadow:0 24px 55px rgba(0,0,0,.6),0 0 0 1px rgba(201,168,76,.22);}
+
+    /* ── PANELS ── */
+    .panel.active{animation:panelIn .45s cubic-bezier(.16,1,.3,1);}
+    @keyframes panelIn{from{opacity:0;transform:translateY(12px) rotateX(4deg);}to{opacity:1;transform:translateY(0) rotateX(0);}}
+
+    /* ── CARDS ── */
+    .card{transition:border-color .22s;}
+    .card:hover{border-color:rgba(201,168,76,.2);}
+
+    /* ── ITEM TABLE ROWS ── */
+    tr:hover td{background:rgba(201,168,76,.04)!important;}
+
+    /* Scrollbar */
+    ::-webkit-scrollbar{width:3px;height:3px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:rgba(201,168,76,.2);border-radius:2px;}
+
     @media(max-width:700px){
       /* Layout */
       .sidebar{display:none}
@@ -171,54 +240,6 @@
     .upload-zone-icon{font-size:2rem;display:block;margin-bottom:8px;line-height:1}
     .upload-zone-label{font-size:.82rem;color:var(--cream-dim);line-height:1.5}
 
-
-    /* ═══ CURSOR ═══ */
-    body { cursor: none; }
-    .adm-cursor { width:9px; height:9px; background:var(--gold); border-radius:50%; position:fixed; top:0; left:0; pointer-events:none; z-index:9999; transform:translate(-50%,-50%); mix-blend-mode:difference; will-change:transform; }
-    .adm-cursor-ring { width:30px; height:30px; border:1px solid rgba(201,168,76,.5); border-radius:50%; position:fixed; top:0; left:0; pointer-events:none; z-index:9998; transform:translate(-50%,-50%); will-change:transform; }
-    @media (hover:none) { .adm-cursor,.adm-cursor-ring { display:none; } body { cursor:auto; } }
-
-    /* ═══ GRAIN ═══ */
-    body::before { content:''; position:fixed; inset:0; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E"); opacity:.022; pointer-events:none; z-index:9980; }
-
-    /* ═══ LOGIN SCREEN — rings ═══ */
-    #login-screen { overflow:hidden; }
-    .ls-rings { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; }
-    .ls-ring { position:absolute; border-radius:50%; border:1px solid; animation:lsRing linear infinite; }
-    .ls-r1 { width:200px; height:200px; border-color:rgba(201,168,76,.35); animation-duration:18s; }
-    .ls-r2 { width:380px; height:380px; border-color:rgba(201,168,76,.18); animation-duration:28s; animation-direction:reverse; }
-    .ls-r3 { width:620px; height:620px; border-color:rgba(201,168,76,.08); animation-duration:46s; }
-    @keyframes lsRing { to { transform:rotate(360deg); } }
-    .ls-glow { position:absolute; width:340px; height:340px; border-radius:50%; background:radial-gradient(circle,rgba(201,168,76,.1) 0%,transparent 70%); animation:lsGlow 4s ease-in-out infinite; }
-    @keyframes lsGlow { 0%,100%{opacity:.6;transform:scale(1)} 50%{opacity:1;transform:scale(1.18)} }
-    .ls-grid { position:absolute; inset:0; background-image:linear-gradient(rgba(201,168,76,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(201,168,76,.03) 1px,transparent 1px); background-size:60px 60px; }
-    #login-screen .login-box { position:relative; z-index:10; animation:lsBox .8s .1s both cubic-bezier(.16,1,.3,1); backdrop-filter:blur(16px); background:rgba(14,13,10,.88); border-color:rgba(201,168,76,.22); }
-    @keyframes lsBox { from{opacity:0;transform:translateY(28px)} to{opacity:1;transform:translateY(0)} }
-
-    /* ═══ SIDEBAR ═══ */
-    .sidebar { background:rgba(7,6,4,.96); backdrop-filter:blur(20px); border-right-color:rgba(201,168,76,.12); }
-    .nav-item { font-family:'Syne',sans-serif; }
-
-    /* ═══ MAIN ═══ */
-    .main { background:var(--ink); }
-
-    /* ═══ CARDS — hover ═══ */
-    .card { transition:border-color .2s ease; }
-    .card:hover { border-color:rgba(201,168,76,.18); }
-
-    /* ═══ STAT CARDS ═══ */
-    .stat-card { transition:transform .2s cubic-bezier(.4,0,.2,1), border-color .2s, box-shadow .2s; }
-    .stat-card:hover { transform:translateY(-3px); border-color:rgba(201,168,76,.3); box-shadow:0 14px 36px rgba(0,0,0,.5); }
-
-    /* ═══ PANEL FADE ═══ */
-    .panel.active { animation:panelIn .4s cubic-bezier(.16,1,.3,1); }
-    @keyframes panelIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
-
-    /* ═══ SCROLLBAR ═══ */
-    ::-webkit-scrollbar { width:4px; height:4px; }
-    ::-webkit-scrollbar-track { background:transparent; }
-    ::-webkit-scrollbar-thumb { background:rgba(201,168,76,.2); border-radius:2px; }
-
     .sidebar::-webkit-scrollbar{width:4px}
     .sidebar::-webkit-scrollbar-track{background:transparent}
     .sidebar::-webkit-scrollbar-thumb{background:rgba(201,168,76,.2);border-radius:2px}
@@ -227,15 +248,17 @@
   </style>
 </head>
 <body>
-  <div class="adm-cursor" id="adm-cursor"></div>
-  <div class="adm-cursor-ring" id="adm-cursor-ring"></div>
+  <div id="adm-cur"></div>
+  <div id="adm-ring"></div>
+  <div id="adm-prog"></div>
   <div id="login-screen">
-    <div class="ls-grid"></div>
-    <div class="ls-rings">
+    <div class="ls-bg">
+      <div class="ls-grid"></div>
       <div class="ls-glow"></div>
-      <div class="ls-ring ls-r1"></div>
-      <div class="ls-ring ls-r2"></div>
-      <div class="ls-ring ls-r3"></div>
+      <div class="ls-ring"></div>
+      <div class="ls-ring"></div>
+      <div class="ls-ring"></div>
+      <div class="ls-ring"></div>
     </div>
     <div class="login-box">
       <div class="login-logo">DISHIFY</div>
@@ -543,26 +566,64 @@ service firebase.storage {
       <!-- QR -->
       <div class="panel" id="panel-qr">
         <div class="page-title">QR Codes</div>
-        <div class="page-subtitle">Generate table QR codes for any restaurant. AR works automatically — no marker or compilation needed.</div>
+        <div class="page-subtitle">Generate table QR codes for any restaurant. The AR system uses one shared marker — set it up once below.</div>
 
-        <!-- AR NOTE: MindAR removed — no compile step needed -->
-        <div class="card" style="margin-bottom:24px;border-color:rgba(76,175,125,.3);background:rgba(76,175,125,.03)">
-          <div class="card-title" style="color:#4caf7d">✅ AR Ready — No Setup Required</div>
-          <p style="font-size:.84rem;color:var(--cream-dim);line-height:1.85;max-width:620px">
-            Dishify AR now uses <strong style="color:var(--gold)">WebXR / Quick Look</strong> — no marker images, no compilation, no special setup needed.<br>
-            Guests simply tap the <strong style="color:#4caf7d">🥽 AR</strong> button on any dish and point their camera at a flat surface — the dish appears in 3D automatically.<br><br>
-            Works on <strong style="color:var(--gold)">Chrome (Android)</strong> and <strong style="color:var(--gold)">Safari (iOS 15+)</strong> natively. No apps to install.
+        <!-- STEP 1: Global AR Marker (one-time setup) -->
+        <div class="card" style="margin-bottom:24px;border-color:rgba(201,168,76,.35)">
+          <div class="card-title">🎯 Step 1 — Global AR Marker <span style="font-size:.7rem;font-weight:400;letter-spacing:0;text-transform:none;color:var(--cream-dim)">(one-time setup for all restaurants)</span></div>
+
+          <!-- Active status badge -->
+          <div id="global-ar-status-wrap" style="display:none;margin-bottom:18px">
+            <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(76,175,125,.08);border:1px solid rgba(76,175,125,.35);border-radius:4px;padding:10px 16px;font-size:.8rem;color:#4caf7d">
+              ✅ Global AR marker is active
+              <span id="global-ar-date" style="color:var(--cream-dim);font-size:.72rem"></span>
+            </div>
+          </div>
+
+          <p style="font-size:.82rem;color:var(--cream-dim);line-height:1.8;max-width:580px;margin-bottom:20px">
+            The marker image below is compiled automatically in your browser and saved directly to Firebase — <strong style="color:var(--gold)">no external tools or file uploads needed.</strong><br>
+            Just click <strong style="color:var(--gold)">Compile &amp; Activate AR</strong> once. All restaurants share this marker.
           </p>
-          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:16px">
-            <div style="padding:10px 16px;background:rgba(76,175,125,.08);border:1px solid rgba(76,175,125,.25);border-radius:3px;font-size:.78rem;color:#4caf7d">✦ Android — Chrome + WebXR</div>
-            <div style="padding:10px 16px;background:rgba(76,175,125,.08);border:1px solid rgba(76,175,125,.25);border-radius:3px;font-size:.78rem;color:#4caf7d">✦ iOS — Safari + Quick Look</div>
-            <div style="padding:10px 16px;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.25);border-radius:3px;font-size:.78rem;color:var(--gold)">✦ Model placed at true scale &amp; fixed in position</div>
+
+          <!-- Marker preview + optional custom upload -->
+          <div style="margin-bottom:22px">
+            <div style="font-size:.68rem;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);margin-bottom:12px">AR Marker Image</div>
+            <div style="display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+                <canvas id="marker-canvas" width="256" height="256" style="border:3px solid var(--gold);border-radius:4px;background:#fff;flex-shrink:0;display:block"></canvas>
+                <span style="font-size:.66rem;color:var(--cream-dim);letter-spacing:.1em">DEFAULT MARKER</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:12px;justify-content:center;max-width:320px">
+                <p style="font-size:.78rem;color:var(--cream-dim);line-height:1.7">This is the shared Dishify AR marker printed on every table card. You can also upload a custom marker image.</p>
+                <!-- Custom image upload -->
+                <div>
+                  <div style="font-size:.68rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:7px">Upload Custom Marker (optional)</div>
+                  <label id="marker-upload-label" style="display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border:1px dashed rgba(201,168,76,.4);border-radius:3px;cursor:pointer;font-size:.76rem;color:var(--cream-dim);transition:all .18s ease" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='rgba(201,168,76,.4)';this.style.color='var(--cream-dim)'">
+                    📁 Choose Image
+                    <input type="file" id="custom-marker-input" accept="image/*" style="display:none" onchange="loadCustomMarker(this)">
+                  </label>
+                  <div id="custom-marker-name" style="font-size:.7rem;color:var(--cream-dim);margin-top:5px;display:none"></div>
+                </div>
+                <button class="btn btn-outline" onclick="downloadMarker()">⬇ Download Marker PNG</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Compile button — opens dedicated compiler.html in a new tab -->
+          <div style="display:flex;flex-direction:column;gap:12px;max-width:420px">
+            <button id="compile-activate-btn" class="btn btn-gold" onclick="compileAndActivate()" style="font-size:.85rem;padding:13px 24px;letter-spacing:.12em">
+              ⚡ Compile &amp; Activate AR
+            </button>
+            <div style="font-size:.74rem;color:var(--cream-dim);line-height:1.65">
+              Opens a new tab to compile the marker — keep it in the foreground until it closes itself.
+            </div>
+            <div id="compile-result" style="display:none;font-size:.78rem;line-height:1.6"></div>
           </div>
         </div>
 
         <!-- STEP 2: Per-restaurant QR -->
         <div class="card">
-          <div class="card-title">📱 Generate Restaurant QR Code</div>
+          <div class="card-title">📱 Step 2 — Generate Restaurant QR Code</div>
           <div class="form-group" style="max-width:300px"><label>Select Restaurant</label><select id="qr-restaurant" onchange="generateQR()"></select></div>
           <div class="qr-wrap"><div id="qrcode" style="width:220px;height:220px"></div></div>
           <div class="qr-url" id="qr-url" style="display:none"></div>
@@ -571,7 +632,7 @@ service firebase.storage {
             <button class="btn btn-outline" onclick="copyQRUrl()">Copy URL</button>
           </div>
           <p style="font-size:.78rem;color:var(--cream-dim);line-height:1.7;margin-top:14px;max-width:480px">
-            Print this QR on your table card. Guests scan it → browse the menu → tap 🥽 AR on any dish → point camera at a flat surface → the dish appears in 3D at true scale. No marker needed. ✨
+            Print this QR and the AR marker on your table card. Guests scan the QR → browse menu → tap 🥽 AR on a dish → point camera at the marker → dish appears in 3D. ✨
           </p>
         </div>
       </div>
@@ -991,26 +1052,249 @@ service firebase.storage {
       },350);
     }
 
+    // ── GLOBAL AR MARKER — draw preview canvas, compile in-browser, save to Firebase ──
+
+    // Holds the image element to compile (default = drawn canvas, or custom upload)
+    let _markerImageEl = null;
+
+    function drawMarkerCanvas(){
+      const canvas = document.getElementById('marker-canvas');
+      if(!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const s = 256;
+      const fr=(x,y,w,h,c='#000')=>{ ctx.fillStyle=c; ctx.fillRect(x,y,w,h); };
+      ctx.fillStyle='#fff'; ctx.fillRect(0,0,s,s);
+      ctx.strokeStyle='#000'; ctx.lineWidth=10; ctx.strokeRect(10,10,236,236);
+      // Corner finders (scaled to 256)
+      fr(20,20,45,45); fr(27,27,30,30,'#fff'); fr(34,34,17,17);
+      fr(191,20,45,45); fr(198,27,30,30,'#fff'); fr(205,34,17,17);
+      fr(20,191,45,45); fr(27,198,30,30,'#fff'); fr(34,205,17,17);
+      // Centre bullseye
+      ctx.beginPath(); ctx.arc(128,128,35,0,Math.PI*2); ctx.fillStyle='#000'; ctx.fill();
+      ctx.beginPath(); ctx.arc(128,128,25,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
+      ctx.beginPath(); ctx.arc(128,128,15,0,Math.PI*2); ctx.fillStyle='#000'; ctx.fill();
+      // Ticks
+      ctx.strokeStyle='#000'; ctx.lineWidth=5;
+      [[128,77,128,87],[128,169,128,179],[77,128,87,128],[169,128,179,128]].forEach(([x1,y1,x2,y2])=>{
+        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+      });
+      // Inner grid
+      [[80,80],[98,80],[149,80],[167,80],[80,98],[167,98],[80,149],[167,149],[80,167],[98,167],[149,167],[167,167]].forEach(([x,y])=>fr(x,y,9,9));
+      // After drawing, create an Image element from the canvas for the compiler
+      const img = new Image();
+      img.src = canvas.toDataURL('image/png');
+      img.onload = () => { _markerImageEl = img; };
+    }
+
+    function loadCustomMarker(input){
+      const file = input.files[0];
+      if(!file) return;
+      const nameEl = document.getElementById('custom-marker-name');
+      nameEl.textContent = '✓ ' + file.name;
+      nameEl.style.display = 'block';
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = new Image();
+        img.onload = () => {
+          // Draw preview on canvas
+          const canvas = document.getElementById('marker-canvas');
+          const ctx = canvas.getContext('2d');
+          ctx.clearRect(0,0,256,256);
+          const scale = Math.min(256/img.width, 256/img.height);
+          const w = img.width*scale, h = img.height*scale;
+          ctx.fillStyle='#fff'; ctx.fillRect(0,0,256,256);
+          ctx.drawImage(img, (256-w)/2, (256-h)/2, w, h);
+          _markerImageEl = img;
+          _markerImageEl.dataset.source = 'custom';
+
+          // Warn if this looks like a logo (too smooth, not a good AR marker)
+          const resultEl = document.getElementById('compile-result');
+          const isLogo = file.name.toLowerCase().includes('logo') || file.name.toLowerCase().includes('icon') || file.name.toLowerCase().includes('mark');
+          if(isLogo) {
+            resultEl.style.display = 'block';
+            resultEl.innerHTML = '<span style="color:#e0a020">⚠ Warning: Logos make poor AR markers — they have too few unique features for reliable tracking. For best results, use the default Dishify marker or a photo with lots of detail and contrast.</span>';
+          } else {
+            resultEl.style.display = 'none';
+          }
+          showToast('Custom marker loaded — click Compile & Activate');
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function compileAndActivate(){
+      const btn = document.getElementById('compile-activate-btn');
+      const resultEl = document.getElementById('compile-result');
+      resultEl.style.display = 'none';
+
+      // If a custom marker was uploaded, pass it to the compiler page via sessionStorage
+      // (sessionStorage is shared between same-origin tabs opened via window.open)
+      if (_markerImageEl && _markerImageEl.dataset && _markerImageEl.dataset.source === 'custom') {
+        const tmpCanvas = document.createElement('canvas');
+        tmpCanvas.width = 256; tmpCanvas.height = 256;
+        const ctx = tmpCanvas.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0,0,256,256);
+        const sc = Math.min(256/_markerImageEl.width, 256/_markerImageEl.height);
+        const w = _markerImageEl.width*sc, h = _markerImageEl.height*sc;
+        ctx.drawImage(_markerImageEl,(256-w)/2,(256-h)/2,w,h);
+        sessionStorage.setItem('dishify_marker_src', tmpCanvas.toDataURL('image/png'));
+      } else {
+        sessionStorage.removeItem('dishify_marker_src');
+      }
+
+      // Open the dedicated compiler page in a new foreground tab
+      const compilerTab = window.open('compiler.html', '_blank');
+      if (!compilerTab) {
+        resultEl.style.display = 'block';
+        resultEl.innerHTML = '<span style="color:#bf4040">⚠ Popup was blocked. Please allow popups for this site and try again.</span>';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = '⏳ Compiling in new tab…';
+      resultEl.style.display = 'block';
+      resultEl.innerHTML = '<span style="color:var(--cream-dim)">🔄 Compiling in new tab — keep it in the foreground until it finishes.</span>';
+
+      // Listen for success message from compiler tab
+      function onCompilerMessage(e) {
+        if (e.data && e.data.type === 'DISHIFY_COMPILED') {
+          window.removeEventListener('message', onCompilerMessage);
+          btn.disabled = false;
+          btn.textContent = '✅ AR Active!';
+          btn.style.background = '#4caf7d';
+          resultEl.innerHTML = '<span style="color:#4caf7d">✅ AR marker compiled and saved! All restaurants are now live.</span>';
+          showGlobalARStatus();
+          showToast('✓ AR marker is now live!');
+          setTimeout(()=>{ btn.textContent='⚡ Recompile AR'; btn.style.background=''; }, 4000);
+        }
+      }
+      window.addEventListener('message', onCompilerMessage);
+
+      // Fallback: poll Firebase directly in case postMessage doesn't fire
+      // (e.g. user navigated in the compiler tab)
+      const pollInterval = setInterval(async () => {
+        try {
+          const snap = await db.ref('config/globalMindTarget/compiledAt').once('value');
+          const ts = snap.val();
+          if (ts && Date.now() - ts < 120000) { // compiled within last 2 min
+            clearInterval(pollInterval);
+            window.removeEventListener('message', onCompilerMessage);
+            if (btn.disabled) {
+              btn.disabled = false;
+              btn.textContent = '✅ AR Active!';
+              btn.style.background = '#4caf7d';
+              resultEl.innerHTML = '<span style="color:#4caf7d">✅ AR marker compiled and saved! All restaurants are now live.</span>';
+              showGlobalARStatus();
+              showToast('✓ AR marker is now live!');
+              setTimeout(()=>{ btn.textContent='⚡ Recompile AR'; btn.style.background=''; }, 4000);
+            }
+          }
+        } catch(e){}
+      }, 3000);
+
+      // Stop polling after 5 minutes regardless
+      setTimeout(()=>{
+        clearInterval(pollInterval);
+        window.removeEventListener('message', onCompilerMessage);
+        if (btn.disabled) {
+          btn.disabled = false;
+          btn.textContent = '⚡ Compile & Activate AR';
+          btn.style.background = '';
+        }
+      }, 300000);
+    }
+
+        function downloadMarker(){
+      const canvas = document.getElementById('marker-canvas');
+      if(!canvas){ showToast('Marker not ready'); return; }
+      const a = document.createElement('a');
+      a.download = 'dishify_ar_marker.png';
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+    }
+
+    function showGlobalARStatus(){
+      db.ref('config/globalMindTarget').once('value', snap=>{
+        const d = snap.val();
+        const wrap = document.getElementById('global-ar-status-wrap');
+        if(!wrap) return;
+        if(d && d.url){
+          wrap.style.display='block';
+          const dateEl = document.getElementById('global-ar-date');
+          if(dateEl && d.compiledAt) dateEl.textContent='· compiled '+new Date(d.compiledAt).toLocaleDateString('en-PK');
+        } else {
+          wrap.style.display='none';
+        }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', ()=>{
+      drawMarkerCanvas();
+      showGlobalARStatus();
+    });
 
     function showToast(msg){const old=document.querySelector('.toast');if(old)old.remove();const t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),4000);}
   </script>
 
   <script>
-    /* ── ADMIN CURSOR ── */
+    /* ── ADMIN IMMERSIVE JS ── */
+
+    /* Cursor */
     (function(){
-      const isTouchOnly = window.matchMedia('(hover:none)').matches;
-      const cur = document.getElementById('adm-cursor');
-      const ring = document.getElementById('adm-cursor-ring');
-      if (!cur || !ring || isTouchOnly) return;
+      const c=document.getElementById('adm-cur'), r=document.getElementById('adm-ring');
+      if(!c||!r||!window.matchMedia('(hover:hover)').matches)return;
       let mx=0,my=0,rx=0,ry=0;
-      document.addEventListener('mousemove', e => { mx=e.clientX; my=e.clientY; }, {passive:true});
+      document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;},{passive:true});
       (function tick(){
-        cur.style.transform = `translate(${mx}px,${my}px) translate(-50%,-50%)`;
-        rx += (mx-rx)*.15; ry += (my-ry)*.15;
-        ring.style.transform = `translate(${rx}px,${ry}px) translate(-50%,-50%)`;
+        c.style.transform=`translate(${mx}px,${my}px) translate(-50%,-50%)`;
+        rx+=(mx-rx)*.13;ry+=(my-ry)*.13;
+        r.style.transform=`translate(${rx}px,${ry}px) translate(-50%,-50%)`;
         requestAnimationFrame(tick);
       })();
     })();
+
+    /* Scroll progress */
+    document.querySelector('.main')?.addEventListener('scroll', e=>{
+      const el=e.currentTarget, p=document.getElementById('adm-prog');
+      if(!p)return;
+      const st=el.scrollTop, sh=el.scrollHeight-el.clientHeight;
+      p.style.width=(sh>0?st/sh*100:0)+'%';
+    },{passive:true});
+
+    /* 3D tilt on stat cards */
+    document.addEventListener('mouseover',e=>{
+      const card=e.target.closest('.stat-card');
+      if(!card)return;
+      card.addEventListener('mousemove',_sTilt);
+      card.addEventListener('mouseleave',_sReset,{once:true});
+    });
+    function _sTilt(e){
+      const r=this.getBoundingClientRect();
+      const x=((e.clientX-r.left)/r.width-.5)*2;
+      const y=((e.clientY-r.top)/r.height-.5)*2;
+      this.style.transform=`translateY(-5px) rotateX(${-y*5}deg) rotateY(${x*6}deg)`;
+    }
+    function _sReset(){
+      this.style.transform='';
+      this.removeEventListener('mousemove',_sTilt);
+    }
+
+    /* Login screen mouse parallax */
+    const _ls=document.getElementById('login-screen');
+    const _lsBg=_ls?.querySelector('.ls-bg');
+    if(_lsBg&&window.matchMedia('(hover:hover)').matches){
+      document.addEventListener('mousemove',e=>{
+        if(!_ls||_ls.style.display==='none')return;
+        const x=(e.clientX/window.innerWidth-.5)*2;
+        const y=(e.clientY/window.innerHeight-.5)*2;
+        _lsBg.querySelector('.ls-glow').style.transform=`translate(${x*20}px,${y*14}px)`;
+        _lsBg.querySelectorAll('.ls-ring').forEach((ring,i)=>{
+          const d=(i+1)*5;
+          ring.style.transform=`rotate(${Date.now()/((i+1)*5000)*360}deg) translate(${x*d}px,${y*d*.6}px)`;
+        });
+      },{passive:true});
+    }
   </script>
 </body>
 </html>

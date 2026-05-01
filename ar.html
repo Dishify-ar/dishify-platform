@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+<title>AR View — Dishify</title>
+<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#c9a84c;--gold2:#e8c97a;
+  --ink:#070604;--ink2:#0d0b08;--ink3:#101009;
+  --cream:#f0e8d5;--dim:rgba(240,232,213,.52);
+  --ff:'Cormorant Garamond',Georgia,serif;
+  --fs:'Syne',system-ui,sans-serif;
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--ink);color:var(--cream);font-family:var(--fs);cursor:none}
+
+/* ── CURSOR ── */
+#cur,#cur-ring{position:fixed;border-radius:50%;pointer-events:none;z-index:9999;top:0;left:0;will-change:transform}
+#cur{width:8px;height:8px;background:var(--gold);transform:translate(-50%,-50%);mix-blend-mode:difference}
+#cur-ring{width:28px;height:28px;border:1px solid rgba(201,168,76,.55);z-index:9998;transform:translate(-50%,-50%)}
+@media(hover:none){#cur,#cur-ring{display:none}body{cursor:auto}}
+
+/* ── PROGRESS BAR ── */
+#prog{position:fixed;top:0;left:0;height:2px;width:0%;background:linear-gradient(90deg,var(--gold),var(--gold2));z-index:8000;pointer-events:none;transition:width .08s linear}
+
+/* ── SCROLL NAV DOTS ── */
+#dots{position:fixed;right:20px;top:50%;transform:translateY(-50%);z-index:7000;display:flex;flex-direction:column;gap:12px}
+.dot{width:5px;height:5px;border-radius:50%;background:rgba(201,168,76,.22);cursor:pointer;transition:all .3s cubic-bezier(.16,1,.3,1)}
+.dot.on{background:var(--gold);box-shadow:0 0 10px rgba(201,168,76,.55);transform:scale(1.6)}
+
+/* ── GRAIN ── */
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");opacity:.03;pointer-events:none;z-index:9990}
+
+/* ══════════════════════════════════════════
+   MAIN SCROLL CONTAINER
+   perspective:1px = CSS 3D parallax root
+══════════════════════════════════════════ */
+#stage{
+  height:100vh;
+  overflow-y:scroll;
+  overflow-x:hidden;
+  perspective:1px;
+  perspective-origin:center center;
+  scrollbar-width:none;
+  scroll-behavior:auto;
+}
+#stage::-webkit-scrollbar{display:none}
+
+/* Every section */
+.sec{position:relative;width:100%;overflow:hidden}
+
+/* ══════════════════════════════════════════
+   §1 HERO  — 3D parallax layers
+══════════════════════════════════════════ */
+#s1{
+  height:100vh;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--ink);
+  transform-style:preserve-3d;
+}
+
+/* LAYER: rings pushed far back — translateZ(-3px) + scale(4) keeps them visible but scrolls much slower = parallax */
+.h-rings{
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  transform:translateZ(-3px) scale(4);
+  transform-origin:center center;
+  pointer-events:none;
+}
+.ring{position:absolute;border-radius:50%;border:1px solid;animation:ringSpin linear infinite}
+.ring:nth-child(1){width:160px;height:160px;border-color:rgba(201,168,76,.42);animation-duration:18s}
+.ring:nth-child(2){width:290px;height:290px;border-color:rgba(201,168,76,.24);animation-duration:28s;animation-direction:reverse}
+.ring:nth-child(3){width:450px;height:450px;border-color:rgba(201,168,76,.13);animation-duration:42s}
+.ring:nth-child(4){width:650px;height:650px;border-color:rgba(201,168,76,.07);animation-duration:60s;animation-direction:reverse}
+.ring:nth-child(5){width:900px;height:900px;border-color:rgba(201,168,76,.03);animation-duration:90s}
+@keyframes ringSpin{to{transform:rotate(360deg)}}
+
+/* LAYER: glow — mid depth */
+.h-glow{
+  position:absolute;width:500px;height:500px;border-radius:50%;
+  background:radial-gradient(circle,rgba(201,168,76,.11) 0%,transparent 65%);
+  transform:translateZ(-1.5px) scale(2.5);
+  animation:glowPulse 5s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes glowPulse{0%,100%{opacity:.5}50%{opacity:1}}
+
+/* LAYER: grid — slightly behind content */
+.h-grid{
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(201,168,76,.045) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(201,168,76,.045) 1px,transparent 1px);
+  background-size:68px 68px;
+  transform:translateZ(-.6px) scale(1.6);
+  pointer-events:none;
+}
+
+/* LAYER: particles — just behind text */
+.particles{position:absolute;inset:0;pointer-events:none;transform:translateZ(-.2px) scale(1.2)}
+.particle{
+  position:absolute;border-radius:50%;background:var(--gold);
+  opacity:0;animation:particleFloat var(--dur) var(--del) ease-in-out infinite;
+}
+@keyframes particleFloat{
+  0%{opacity:0;transform:translateY(0) scale(0)}
+  15%{opacity:.55}80%{opacity:.1}
+  100%{opacity:0;transform:translateY(-100px) scale(1.8)}
+}
+
+/* LAYER: content — front (translateZ(0) = normal depth, scrolls fastest) */
+.h-content{
+  position:relative;z-index:10;
+  text-align:center;padding:0 28px;
+  /* Subtle 3D float */
+  animation:heroFloat 6s ease-in-out infinite;
+}
+@keyframes heroFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+
+.eyebrow{font-family:var(--fs);font-size:.6rem;letter-spacing:.55em;text-transform:uppercase;color:var(--gold);margin-bottom:22px;animation:riseIn .9s .05s both cubic-bezier(.16,1,.3,1)}
+.hero-title{
+  font-family:var(--ff);font-size:clamp(4.5rem,14vw,10rem);
+  font-weight:300;line-height:.86;letter-spacing:-.025em;color:var(--cream);
+  animation:riseIn 1s .15s both cubic-bezier(.16,1,.3,1);
+}
+.hero-title em{font-style:italic;color:var(--gold)}
+.hero-sub{font-family:var(--fs);font-size:.72rem;letter-spacing:.28em;text-transform:uppercase;color:var(--dim);margin-top:24px;line-height:1.9;animation:riseIn .9s .3s both cubic-bezier(.16,1,.3,1)}
+@keyframes riseIn{from{opacity:0;transform:translateY(44px)}to{opacity:1;transform:translateY(0)}}
+
+/* Scroll cue */
+.scroll-cue{position:absolute;bottom:38px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:10px;animation:riseIn 1s .55s both cubic-bezier(.16,1,.3,1)}
+.sc-label{font-size:.58rem;letter-spacing:.4em;text-transform:uppercase;color:var(--dim)}
+.sc-line{width:1px;height:52px;background:linear-gradient(to bottom,var(--gold),transparent);animation:scLine 2s ease-in-out infinite}
+@keyframes scLine{0%{transform:scaleY(0);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}51%{transform:scaleY(1);transform-origin:bottom}100%{transform:scaleY(0);transform-origin:bottom}}
+
+/* ══════════════════════════════════════════
+   §2 DISH INFO — 3D tilt cards
+══════════════════════════════════════════ */
+#s2{
+  min-height:100vh;
+  background:linear-gradient(180deg,var(--ink) 0%,var(--ink2) 100%);
+  display:flex;align-items:center;justify-content:center;
+  padding:80px 32px;
+}
+.s2-wrap{max-width:860px;width:100%;display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center}
+@media(max-width:680px){.s2-wrap{grid-template-columns:1fr;gap:48px}}
+
+.s2-label{font-size:.58rem;letter-spacing:.45em;text-transform:uppercase;color:var(--gold);display:block;margin-bottom:14px}
+.s2-title{font-family:var(--ff);font-size:clamp(2.6rem,5.5vw,4.5rem);font-weight:300;line-height:.92;color:var(--cream);letter-spacing:-.01em}
+.s2-title em{font-style:italic;color:var(--gold)}
+.s2-body{font-size:.82rem;color:var(--dim);line-height:1.9;margin-top:20px;max-width:310px}
+
+/* 3D card stack — real CSS 3D */
+.stack{
+  position:relative;height:280px;
+  perspective:700px;transform-style:preserve-3d;
+}
+.dc{
+  position:absolute;border-radius:5px;border:1px solid rgba(201,168,76,.18);
+  transition:transform .4s cubic-bezier(.16,1,.3,1),box-shadow .4s,border-color .3s;
+}
+.dc1{inset:0;background:rgba(201,168,76,.07);transform:rotateX(10deg) rotateY(-14deg) translateZ(0)}
+.dc2{inset:14px 10px;background:rgba(201,168,76,.04);transform:rotateX(10deg) rotateY(-14deg) translateZ(-22px)}
+.dc3{inset:28px 20px;background:rgba(201,168,76,.02);transform:rotateX(10deg) rotateY(-14deg) translateZ(-44px)}
+.stack:hover .dc1{transform:rotateX(4deg) rotateY(-6deg) translateZ(16px);box-shadow:0 32px 80px rgba(0,0,0,.65),0 0 40px rgba(201,168,76,.12);border-color:rgba(201,168,76,.32)}
+.stack:hover .dc2{transform:rotateX(4deg) rotateY(-6deg) translateZ(-6px)}
+.stack:hover .dc3{transform:rotateX(4deg) rotateY(-6deg) translateZ(-28px)}
+
+.dc-inner{padding:26px;height:100%;display:flex;flex-direction:column;justify-content:space-between}
+.dc-badge{width:fit-content;padding:4px 10px;border:1px solid rgba(76,175,125,.35);color:#5ecb8c;border-radius:2px;font-size:.58rem;letter-spacing:.2em;text-transform:uppercase}
+.dc-emoji{font-size:3.2rem;line-height:1}
+.dc-name{font-family:var(--ff);font-size:1.25rem;font-weight:300;color:var(--cream)}
+
+/* ══════════════════════════════════════════
+   §3 MODEL VIEWER
+══════════════════════════════════════════ */
+#s3{
+  height:100vh;
+  display:flex;flex-direction:column;
+  background:var(--ink2);
+  position:relative;
+}
+#s3::before{content:'';position:absolute;top:-60px;left:-60px;width:360px;height:360px;border-radius:50%;background:radial-gradient(circle,rgba(201,168,76,.07) 0%,transparent 65%);pointer-events:none}
+#s3::after{content:'';position:absolute;bottom:-50px;right:-50px;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(201,168,76,.05) 0%,transparent 65%);pointer-events:none}
+
+.s3-bar{
+  display:flex;align-items:center;gap:14px;
+  padding:14px 20px;
+  background:rgba(7,6,4,.95);border-bottom:1px solid rgba(201,168,76,.14);
+  flex-shrink:0;position:relative;z-index:20;
+}
+.back-btn{display:flex;align-items:center;gap:7px;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.32);color:var(--gold);padding:9px 16px;border-radius:3px;font-family:var(--fs);font-size:.66rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;cursor:pointer;transition:all .18s}
+.back-btn:hover{background:rgba(201,168,76,.18);border-color:var(--gold)}
+.s3-names{flex:1;min-width:0}
+.s3-sm{font-size:.57rem;letter-spacing:.3em;color:var(--dim);text-transform:uppercase;margin-bottom:2px}
+#s3-name{font-family:var(--ff);font-size:1.08rem;color:var(--cream);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.s3-badge{font-size:.57rem;letter-spacing:.18em;text-transform:uppercase;padding:4px 10px;border:1px solid rgba(76,175,125,.3);color:#5ecb8c;border-radius:2px;flex-shrink:0;animation:badgePulse 3s ease-in-out infinite}
+@keyframes badgePulse{0%,100%{box-shadow:none}50%{box-shadow:0 0 12px rgba(76,175,125,.18)}}
+
+.viewer-wrap{flex:1;position:relative;min-height:0;overflow:hidden}
+.viewer-wrap::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 52%,rgba(7,6,4,.55) 100%);pointer-events:none;z-index:5}
+
+model-viewer{width:100%;height:100%;background:#0a0907;--progress-bar-color:var(--gold);--progress-bar-height:2px}
+
+#mv-load{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:#0a0907;z-index:10;transition:opacity .5s}
+#mv-load.out{opacity:0;pointer-events:none}
+.lr{position:absolute;border-radius:50%;border:1.5px solid transparent}
+.lr1{inset:0;border-top-color:var(--gold);animation:spin .9s linear infinite}
+.lr2{inset:10px;border-right-color:rgba(201,168,76,.45);animation:spin .65s linear infinite reverse}
+.lr3{inset:20px;border-bottom-color:rgba(201,168,76,.22);animation:spin 1.5s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.lr-wrap{position:relative;width:58px;height:58px}
+.mv-txt{font-size:.65rem;letter-spacing:.3em;text-transform:uppercase;color:var(--dim)}
+
+#mv-err{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:40px;text-align:center;background:#0a0907;z-index:11}
+#mv-err.show{display:flex}
+.err-ico{font-size:2.5rem;opacity:.35}
+.err-msg{font-size:.83rem;color:var(--dim);line-height:1.75;max-width:280px;white-space:pre-line}
+.err-back{padding:10px 22px;background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.32);color:var(--gold);border-radius:3px;font-family:var(--fs);font-size:.68rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;cursor:pointer;margin-top:8px}
+
+.mv-chip{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);background:rgba(7,6,4,.78);border:1px solid rgba(201,168,76,.18);backdrop-filter:blur(14px);border-radius:100px;padding:8px 18px;display:flex;align-items:center;gap:10px;z-index:6;font-size:.66rem;letter-spacing:.1em;color:var(--dim);white-space:nowrap;transition:opacity .5s}
+.mv-chip.gone{opacity:0;pointer-events:none}
+.cdot{width:4px;height:4px;border-radius:50%;background:var(--gold);animation:cdot 2s ease-in-out infinite}
+@keyframes cdot{0%,100%{opacity:1}50%{opacity:.15}}
+
+/* ══════════════════════════════════════════
+   §4 AR LAUNCH
+══════════════════════════════════════════ */
+#s4{
+  min-height:100vh;
+  background:var(--ink3);
+  display:flex;align-items:center;justify-content:center;
+  padding:80px 32px;
+  position:relative;overflow:hidden;
+}
+/* Hex pattern bg */
+#s4::before{content:'';position:absolute;inset:0;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cpath d='M28 0L56 16v50L28 82 0 66V16Z' fill='none' stroke='rgba(201,168,76,0.055)' stroke-width='1'/%3E%3C/svg%3E");background-size:56px 100px;pointer-events:none}
+.s4-conic{position:absolute;top:50%;left:50%;width:900px;height:900px;margin:-450px;background:conic-gradient(from 0deg,transparent,rgba(201,168,76,.045) 45deg,transparent 90deg);animation:conicSpin 28s linear infinite;pointer-events:none}
+@keyframes conicSpin{to{transform:rotate(360deg)}}
+
+.s4-inner{position:relative;z-index:10;max-width:540px;width:100%;display:flex;flex-direction:column;align-items:center;text-align:center}
+
+.s4-pill{display:inline-flex;align-items:center;gap:8px;background:rgba(76,175,125,.07);border:1px solid rgba(76,175,125,.22);border-radius:100px;padding:6px 16px;font-size:.62rem;letter-spacing:.25em;text-transform:uppercase;color:#5ecb8c;margin-bottom:28px}
+.pdot{width:5px;height:5px;border-radius:50%;background:#5ecb8c;box-shadow:0 0 6px #5ecb8c;animation:pdotBlink 2s ease-in-out infinite}
+@keyframes pdotBlink{0%,100%{opacity:1}50%{opacity:.15}}
+
+.s4-title{font-family:var(--ff);font-size:clamp(3rem,9vw,5.5rem);font-weight:300;line-height:.9;color:var(--cream);letter-spacing:-.015em;margin-bottom:18px}
+.s4-title em{font-style:italic;color:var(--gold)}
+.s4-sub{font-size:.8rem;color:var(--dim);line-height:1.85;max-width:360px;margin-bottom:44px}
+
+/* 3D steps */
+.steps{display:flex;gap:14px;width:100%;margin-bottom:40px;perspective:500px}
+.step{
+  flex:1;padding:22px 12px;
+  background:rgba(201,168,76,.04);border:1px solid rgba(201,168,76,.14);border-radius:4px;
+  text-align:center;position:relative;
+  transform:rotateX(14deg) translateZ(0);transform-style:preserve-3d;
+  transition:transform .38s cubic-bezier(.16,1,.3,1),box-shadow .38s,border-color .3s;
+  cursor:default;
+}
+.step:hover{transform:rotateX(0deg) translateZ(18px);box-shadow:0 24px 60px rgba(0,0,0,.6);border-color:rgba(201,168,76,.32)}
+.step-n{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--gold);color:var(--ink);width:22px;height:22px;border-radius:50%;font-family:var(--fs);font-size:.58rem;font-weight:700;display:flex;align-items:center;justify-content:center}
+.step-ico{font-size:1.5rem;display:block;margin-bottom:10px}
+.step-txt{font-size:.67rem;color:var(--dim);line-height:1.6}
+
+/* Big AR button */
+.ar-btn{
+  width:100%;max-width:340px;padding:20px;
+  background:var(--gold);color:var(--ink);border:none;border-radius:3px;
+  font-family:var(--fs);font-size:.8rem;font-weight:700;letter-spacing:.24em;text-transform:uppercase;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;
+  position:relative;overflow:hidden;
+  transition:all .22s cubic-bezier(.4,0,.2,1);
+}
+.ar-btn::after{content:'';position:absolute;top:0;left:-110%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent);transition:left .55s ease}
+.ar-btn:hover::after{left:110%}
+.ar-btn:hover{background:var(--gold2);transform:translateY(-3px);box-shadow:0 22px 55px rgba(201,168,76,.38)}
+.ar-btn:active{transform:translateY(0)}
+.ar-btn:disabled{opacity:.35;cursor:not-allowed;transform:none;box-shadow:none}
+.ar-btn:disabled::after{display:none}
+
+.torch-btn{display:none;align-items:center;gap:8px;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.3);color:var(--gold);padding:12px 20px;border-radius:3px;font-family:var(--fs);font-size:.7rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;margin-top:16px;transition:all .18s}
+.torch-btn.vis{display:flex}
+.torch-btn.on{background:rgba(201,168,76,.2);border-color:var(--gold);box-shadow:0 0 16px rgba(201,168,76,.25)}
+
+.s4-note{margin-top:22px;font-size:.63rem;color:var(--dim);opacity:.5;line-height:1.75;text-align:center;max-width:320px}
+
+/* ══════════════════════════════════════════
+   SCROLL REVEAL — 3D entrance
+══════════════════════════════════════════ */
+.rv{opacity:0;transform:translateY(52px) rotateX(10deg);transition:opacity .72s cubic-bezier(.16,1,.3,1),transform .72s cubic-bezier(.16,1,.3,1);transform-origin:top center}
+.rv.in{opacity:1;transform:translateY(0) rotateX(0deg)}
+.rvl{opacity:0;transform:translateX(-56px) rotateY(14deg);transition:opacity .72s cubic-bezier(.16,1,.3,1),transform .72s cubic-bezier(.16,1,.3,1)}
+.rvl.in{opacity:1;transform:translateX(0) rotateY(0deg)}
+.rvr{opacity:0;transform:translateX(56px) rotateY(-14deg);transition:opacity .72s cubic-bezier(.16,1,.3,1),transform .72s cubic-bezier(.16,1,.3,1)}
+.rvr.in{opacity:1;transform:translateX(0) rotateY(0deg)}
+.d1{transition-delay:.08s}.d2{transition-delay:.18s}.d3{transition-delay:.28s}.d4{transition-delay:.38s}
+</style>
+</head>
+<body>
+
+<div id="cur"></div>
+<div id="cur-ring"></div>
+<div id="prog"></div>
+<div id="dots">
+  <div class="dot on" data-i="0"></div>
+  <div class="dot" data-i="1"></div>
+  <div class="dot" data-i="2"></div>
+  <div class="dot" data-i="3"></div>
+</div>
+
+<div id="stage">
+
+  <!-- ═══════════════ §1 HERO ═══════════════ -->
+  <section class="sec" id="s1" data-i="0">
+
+    <!-- Far-back CSS 3D layer: rings scroll slower than content = parallax -->
+    <div class="h-rings">
+      <div class="ring"></div>
+      <div class="ring"></div>
+      <div class="ring"></div>
+      <div class="ring"></div>
+      <div class="ring"></div>
+    </div>
+
+    <!-- Mid-depth glow -->
+    <div class="h-glow"></div>
+
+    <!-- Mid-depth grid -->
+    <div class="h-grid"></div>
+
+    <!-- Near-front particles -->
+    <div id="particles" class="particles"></div>
+
+    <!-- Front text -->
+    <div class="h-content">
+      <div class="eyebrow">✦ &nbsp;Dishify · AR Experience &nbsp;✦</div>
+      <h1 class="hero-title">
+        See&nbsp;it<br>
+        <em>Before</em><br>
+        You&nbsp;Order
+      </h1>
+      <p class="hero-sub" id="hero-sub">Loading dish…</p>
+    </div>
+
+    <div class="scroll-cue">
+      <span class="sc-label">Scroll to explore</span>
+      <div class="sc-line"></div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ §2 DISH INFO ═══════════════ -->
+  <section class="sec" id="s2" data-i="1">
+    <div class="s2-wrap">
+
+      <div>
+        <span class="s2-label rv">Now viewing</span>
+        <h2 class="s2-title rv d1" id="s2-name"><em>Loading</em><br>dish…</h2>
+        <p class="s2-body rv d2" id="s2-body">
+          A beautifully crafted dish, rendered in full 3D. Rotate it, zoom in, then drop it onto your real table using AR — before you even order.
+        </p>
+      </div>
+
+      <!-- 3D card stack — mouse tilt controlled via JS -->
+      <div class="stack rvr d1" id="card-stack">
+        <div class="dc dc3"></div>
+        <div class="dc dc2"></div>
+        <div class="dc dc1">
+          <div class="dc-inner">
+            <div class="dc-badge">✦ AR Ready</div>
+            <div class="dc-emoji" id="dc-emoji">🍽️</div>
+            <div class="dc-name" id="dc-name">Loading…</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ═══════════════ §3 3D VIEWER ═══════════════ -->
+  <section class="sec" id="s3" data-i="2">
+
+    <div class="s3-bar">
+      <button class="back-btn" onclick="goBack()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+        Back
+      </button>
+      <div class="s3-names">
+        <div class="s3-sm">3D Preview</div>
+        <div id="s3-name">Loading…</div>
+      </div>
+      <div class="s3-badge">3D · AR Ready</div>
+    </div>
+
+    <div class="viewer-wrap">
+      <div id="mv-load">
+        <div class="lr-wrap">
+          <div class="lr lr1"></div>
+          <div class="lr lr2"></div>
+          <div class="lr lr3"></div>
+        </div>
+        <div class="mv-txt" id="mv-txt">Rendering model…</div>
+      </div>
+
+      <div id="mv-err">
+        <div class="err-ico">◈</div>
+        <div class="err-msg" id="err-msg">Something went wrong.</div>
+        <button class="err-back" onclick="goBack()">← Go Back</button>
+      </div>
+
+      <model-viewer
+        id="mv"
+        camera-controls
+        touch-action="pan-y"
+        auto-rotate
+        auto-rotate-delay="900"
+        rotation-per-second="14deg"
+        ar
+        ar-modes="webxr scene-viewer quick-look"
+        ar-placement="floor"
+        ar-scale="fixed"
+        xr-environment
+        shadow-intensity="2.2"
+        shadow-softness=".85"
+        environment-image="https://modelviewer.dev/shared-assets/environments/moon_1k.hdr"
+        exposure="1.25"
+        tone-mapping="commerce"
+        reveal="auto"
+        loading="eager">
+      </model-viewer>
+
+      <div class="mv-chip" id="mv-chip">
+        <div class="cdot"></div>
+        <span>Drag to rotate · Pinch to zoom</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ §4 AR LAUNCH ═══════════════ -->
+  <section class="sec" id="s4" data-i="3">
+    <div class="s4-conic"></div>
+
+    <div class="s4-inner">
+      <div class="s4-pill rv">
+        <div class="pdot"></div>
+        <span id="ar-pill">AR Ready</span>
+      </div>
+
+      <h2 class="s4-title rv d1">Place it<br>on your <em>Table</em></h2>
+      <p class="s4-sub rv d2" id="s4-sub">Your 3D model is ready. Tap the button, point your camera at any flat surface — the dish appears at true scale and stays fixed.</p>
+
+      <div class="steps">
+        <div class="step rv d1">
+          <div class="step-n">1</div>
+          <span class="step-ico">📷</span>
+          <div class="step-txt">Tap View in AR</div>
+        </div>
+        <div class="step rv d2">
+          <div class="step-n">2</div>
+          <span class="step-ico">🔍</span>
+          <div class="step-txt">Point at flat surface</div>
+        </div>
+        <div class="step rv d3">
+          <div class="step-n">3</div>
+          <span class="step-ico">✦</span>
+          <div class="step-txt">Dish placed &amp; fixed</div>
+        </div>
+      </div>
+
+      <button class="ar-btn" id="ar-btn" onclick="launchAR()" disabled>
+        📷 &nbsp;View in AR
+      </button>
+      <button class="torch-btn" id="torch-btn" onclick="toggleTorch()">🔦 Flashlight</button>
+
+      <p class="s4-note rv d4" id="s4-note">
+        Chrome (Android) · Safari iOS 15+<br>
+        True scale · Fixed on placement · No marker needed
+      </p>
+    </div>
+  </section>
+
+</div><!-- /stage -->
+
+<script>
+/* ─── FIREBASE ─────────────────────────────────── */
+const FC={apiKey:"AIzaSyBvfA2VXcrx69iS-3VaCR9lA6mGyn6OicI",authDomain:"dishify-menu.firebaseapp.com",databaseURL:"https://dishify-menu-default-rtdb.firebaseio.com",projectId:"dishify-menu",storageBucket:"dishify-menu.firebasestorage.app",messagingSenderId:"182873179650",appId:"1:182873179650:web:8ff8cf3c04789d9f7b091b"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+
+const P=new URLSearchParams(location.search);
+const rid=P.get('r')||'',itemName=P.get('item')||'',modelParam=P.get('model')||'';
+
+/* ─── CURSOR ─────────────────────────────────── */
+const $cur=document.getElementById('cur'),
+      $ring=document.getElementById('cur-ring');
+if(window.matchMedia('(hover:hover)').matches){
+  let mx=0,my=0,rx=0,ry=0;
+  document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY},{passive:true});
+  (function tick(){
+    $cur.style.transform=`translate(${mx}px,${my}px) translate(-50%,-50%)`;
+    rx+=(mx-rx)*.13; ry+=(my-ry)*.13;
+    $ring.style.transform=`translate(${rx}px,${ry}px) translate(-50%,-50%)`;
+    requestAnimationFrame(tick);
+  })();
+}
+
+/* ─── PARTICLES ──────────────────────────────── */
+(()=>{
+  const c=document.getElementById('particles');
+  for(let i=0;i<20;i++){
+    const p=document.createElement('div');
+    const s=Math.random()*3+.5;
+    p.className='particle';
+    p.style.cssText=`width:${s}px;height:${s}px;left:${Math.random()*100}%;top:${30+Math.random()*55}%;--dur:${6+Math.random()*11}s;--del:${Math.random()*9}s`;
+    c.appendChild(p);
+  }
+})();
+
+/* ─── SCROLL ENGINE ──────────────────────────── */
+const stage=document.getElementById('stage');
+const prog=document.getElementById('prog');
+const secs=[...document.querySelectorAll('.sec')];
+const dots=[...document.querySelectorAll('.dot')];
+const isMouse=window.matchMedia('(hover:hover)').matches;
+
+// 3D mouse parallax state for hero
+let _heroMX=0,_heroMY=0;
+const hRings=document.querySelector('.h-rings');
+const hGrid=document.querySelector('.h-grid');
+const hContent=document.querySelector('.h-content');
+
+if(isMouse){
+  document.addEventListener('mousemove',e=>{
+    _heroMX=(e.clientX/window.innerWidth-.5)*2;
+    _heroMY=(e.clientY/window.innerHeight-.5)*2;
+    // Only when hero visible
+    const s1=document.getElementById('s1');
+    if(s1.getBoundingClientRect().bottom>0&&s1.getBoundingClientRect().top<window.innerHeight){
+      hRings.style.transform=`translateZ(-3px) scale(4) translate(${_heroMX*14}px,${_heroMY*9}px)`;
+      hGrid.style.transform=`translateZ(-.6px) scale(1.6) translate(${_heroMX*7}px,${_heroMY*4}px)`;
+      hContent.style.transform=`translate(${_heroMX*-7}px,${_heroMY*-4}px)`;
+    }
+  },{passive:true});
+}
+
+stage.addEventListener('scroll',()=>{
+  const st=stage.scrollTop,sh=stage.scrollHeight-stage.clientHeight;
+  prog.style.width=(st/sh*100)+'%';
+
+  // Active dot
+  let ai=0;
+  secs.forEach((s,i)=>{
+    const r=s.getBoundingClientRect();
+    if(r.top<=window.innerHeight*.55)ai=i;
+  });
+  dots.forEach((d,i)=>d.classList.toggle('on',i===ai));
+
+  // Reveal on scroll
+  revealCheck();
+},{passive:true});
+
+function revealCheck(){
+  document.querySelectorAll('.rv,.rvl,.rvr').forEach(el=>{
+    if(el.getBoundingClientRect().top<window.innerHeight*.9)el.classList.add('in');
+  });
+}
+
+dots.forEach(d=>d.addEventListener('click',()=>{
+  secs[+d.dataset.i].scrollIntoView({behavior:'smooth'});
+}));
+
+/* ─── 3D CARD STACK MOUSE TILT ───────────────── */
+const stack=document.getElementById('card-stack');
+stack.addEventListener('mousemove',e=>{
+  const r=stack.getBoundingClientRect();
+  const x=((e.clientX-r.left)/r.width-.5)*2;
+  const y=((e.clientY-r.top)/r.height-.5)*2;
+  stack.querySelectorAll('.dc').forEach((c,i)=>{
+    const zBase=[0,-22,-44][i],zBoost=i===0?18:0;
+    c.style.transform=`rotateX(${-y*9}deg) rotateY(${x*13}deg) translateZ(${zBase+zBoost}px)`;
+    if(i===0)c.style.boxShadow=`0 ${28+y*10}px 70px rgba(0,0,0,.65),0 0 35px rgba(201,168,76,.${Math.round(8+Math.abs(x)*4)})`;
+  });
+});
+stack.addEventListener('mouseleave',()=>{
+  stack.querySelectorAll('.dc').forEach((c,i)=>{
+    const z=[0,-22,-44][i];
+    c.style.transform=`rotateX(10deg) rotateY(-14deg) translateZ(${z}px)`;
+    if(i===0)c.style.boxShadow='';
+  });
+});
+
+/* ─── HELPERS ────────────────────────────────── */
+function goBack(){
+  if(document.referrer.includes('menu.html'))history.back();
+  else location.href='menu.html?r='+encodeURIComponent(rid);
+}
+function showError(txt){
+  document.getElementById('mv-load').classList.add('out');
+  document.getElementById('err-msg').textContent=txt;
+  document.getElementById('mv-err').classList.add('show');
+  document.getElementById('ar-btn').disabled=true;
+}
+function setNames(name,emoji){
+  const e=emoji||'',en=e?e+' ':'';
+  document.getElementById('hero-sub').textContent=en+name;
+  document.getElementById('s2-name').innerHTML=`${e?`<em>${e.trim()}</em><br>`:''}${name}`;
+  document.getElementById('s3-name').textContent=en+name;
+  document.getElementById('dc-name').textContent=name;
+  if(e)document.getElementById('dc-emoji').textContent=e.trim();
+}
+function convertUrl(url){
+  if(!url)return'';
+  const m1=url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if(m1)return'https://drive.google.com/uc?export=download&id='+m1[1];
+  const m2=url.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
+  if(m2)return'https://drive.google.com/uc?export=download&id='+m2[1];
+  if(url.includes('cloudinary.com')&&!url.includes('fl_attachment'))
+    url=url.replace('/upload/','/upload/fl_attachment/');
+  return url;
+}
+
+/* ─── TORCH ──────────────────────────────────── */
+let _tt=null,_ton=false;
+async function toggleTorch(){
+  const btn=document.getElementById('torch-btn');
+  if(!_tt){
+    try{const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',advanced:[{torch:true}]}});_tt=s.getVideoTracks()[0];}
+    catch{btn.style.opacity='.3';return;}
+  }
+  _ton=!_ton;
+  try{
+    await _tt.applyConstraints({advanced:[{torch:_ton}]});
+    btn.classList.toggle('on',_ton);
+    btn.textContent=(_ton?'💡':'🔦')+' Flashlight';
+  }catch{}
+}
+
+/* ─── AR LAUNCH ──────────────────────────────── */
+async function launchAR(){
+  const mv=document.getElementById('mv');
+  document.getElementById('torch-btn').classList.add('vis');
+  if(mv.canActivateAR){mv.activateAR();return;}
+  if(/android/i.test(navigator.userAgent)&&mv.src){
+    location.href='intent://arvr.google.com/scene-viewer/1.0?file='+encodeURIComponent(mv.src)+'&mode=ar_preferred&resizable=false#Intent;scheme=https;package=com.google.android.googlequicksearchbox;action=android.intent.action.VIEW;S.browser_fallback_url='+encodeURIComponent(mv.src)+';end;';
+    return;
+  }
+  if(/iphone|ipad/i.test(navigator.userAgent)){alert('Tap the AR cube icon (📦) in the viewer corner to place in AR.');return;}
+  alert('AR requires Chrome on Android or Safari on iOS.');
+}
+
+/* ─── AR STATUS ──────────────────────────────── */
+document.getElementById('mv').addEventListener('ar-status',e=>{
+  const n=document.getElementById('s4-note');
+  if(e.detail.status==='object-placed')n.textContent='✅ Dish placed at true scale — fixed in position';
+  if(e.detail.status==='failed')n.textContent='⚠️ AR unavailable — try Chrome (Android) or Safari (iOS)';
+});
+
+/* ─── CHIP HIDE ──────────────────────────────── */
+document.getElementById('mv').addEventListener('camera-change',()=>{
+  document.getElementById('mv-chip').classList.add('gone');
+},{once:true});
+
+/* ─── INIT ───────────────────────────────────── */
+async function init(){
+  if(!rid&&!modelParam){showError('Missing item info.\nPlease scan the QR code again.');return;}
+  setNames(itemName||'AR Preview','');
+
+  let modelUrl='';
+  if(modelParam)modelUrl=convertUrl(decodeURIComponent(modelParam));
+
+  if(!modelUrl&&rid&&itemName){
+    try{
+      const snap=await db.ref('restaurants/'+rid).once('value');
+      const rest=snap.val();
+      if(rest?.menu){
+        const item=Object.values(rest.menu).find(i=>i.name===itemName);
+        if(item?.model){modelUrl=convertUrl(item.model);setNames(itemName,item.emoji||'');}
+      }
+    }catch{showError('Could not connect.\nCheck your internet and try again.');return;}
+  }
+
+  if(!modelUrl){showError('No 3D model found for "'+itemName+'".\nAsk admin to upload a .glb model.');return;}
+
+  const mv=document.getElementById('mv');
+  mv.src=modelUrl;
+
+  mv.addEventListener('load',()=>{
+    document.getElementById('mv-load').classList.add('out');
+    document.getElementById('ar-btn').disabled=false;
+    const mob=/android|iphone|ipad/i.test(navigator.userAgent);
+    if(mob&&mv.canActivateAR){
+      document.getElementById('ar-pill').textContent='WebXR Ready';
+      document.getElementById('s4-sub').textContent='Model ready! Tap View in AR — point at a flat surface and the dish appears at true scale, fixed in place.';
+    }else if(!mob){
+      document.getElementById('s4-sub').textContent='Open this page on your phone to use AR — works in Chrome (Android) or Safari (iOS 15+).';
+    }
+  },{once:true});
+
+  mv.addEventListener('error',()=>{showError('Could not load the 3D model.\nThe file may be broken or the link expired.\nAsk admin to re-upload the .glb model.');},{once:true});
+
+  setTimeout(()=>{
+    if(!document.getElementById('mv-load').classList.contains('out'))
+      document.getElementById('mv-txt').textContent='Still loading… (large file)';
+  },7000);
+}
+
+window.addEventListener('pagehide',()=>{if(_tt)try{_tt.stop();}catch{}});
+
+// Initial reveal pass
+setTimeout(revealCheck,120);
+
+init();
+</script>
+</body>
+</html>
